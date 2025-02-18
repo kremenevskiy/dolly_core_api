@@ -8,7 +8,7 @@ class SubscriptionRepository:
         query = """
             SELECT id, subscription_name, subscription_type, cost_rubles, cost_stars,
                 duration, start_date, end_date,
-                models_count, generation_photos_count
+                models_count, generation_photos_count, ru_description
             FROM subscriptions_details
             WHERE is_active = TRUE;
         """
@@ -20,7 +20,7 @@ class SubscriptionRepository:
         query = """
             SELECT id, subscription_name, subscription_type, cost_rubles, cost_stars,
                 duration, start_date, end_date,
-                models_count, generation_photos_count
+                models_count, generation_photos_count, ru_description
             FROM subscriptions_details
             WHERE id = $1;
         """
@@ -32,7 +32,7 @@ class SubscriptionRepository:
         query = """
             SELECT id, subscription_name, subscription_type, cost_rubles, cost_stars,
                 duration, start_date, end_date,
-                models_count, generation_photos_count
+                models_count, generation_photos_count, ru_description
             FROM subscriptions_details
             WHERE subscription_name = $1;
         """
