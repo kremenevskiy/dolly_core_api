@@ -5,6 +5,7 @@ from src.model import service as model_service
 from src.subscription_details import model as subscription_details_model
 from src.subscription_details import service as subscription_details_service
 from src.user import exception, model
+from src.user import repository
 from src.user.repository import PaymentRepository, UserRepository
 
 user_repository = UserRepository()
@@ -127,6 +128,7 @@ async def get_referral_info(referrer_id: str) -> model.UserReferralInfo:
 async def subscribe_user(
     user_id: str, subscription_id: int
 ) -> model.UserSubscriptionAdditional | None:
+
     await apply_subscription(user_id, subscription_id)
     ref_additional = await reward_ref(user_id, subscription_id)
     if ref_additional is not None:
@@ -209,6 +211,13 @@ async def reward_ref(user_id: str, sub_id: int) -> model.ReferralBonusGeneration
     user = await get_user(user_id)
 
     if user.referrer_id is None:
+        return
+
+    subscription = await subscription_details_service.get_subscription_details(
+        subscription_id=sub_id
+    )
+
+    if not subscription.is_monthly_sub():
         return
 
     ref_sub = await ref_subscription()
@@ -294,38 +303,31 @@ async def update_subscription_state(user_id: str, operation: model.OperationType
     if user_subscription is None:
         raise exception.NoActiveSubscription
 
-    user = await user_repository.get_user_by_id(user_id=user_id)
-    if user is None:
-        raise exception.UserNotFound
+    try:
+        if operation == model.OperationType.GENERATE_BY_IMAGE:
+            await user_repository.decrement_generation_count_left(user_subscription)
 
-    if await is_raise_limits(user, user_subscription, operation):
-        await handle_raised_limits(user, user_subscription, operation)
-
-    if operation == model.OperationType.GENERATE_BY_IMAGE:
-        user_subscription.generation_photos_left -= 1
-
-        await user_repository.update_user_subscription(user_subscription)
-
-    elif operation == model.OperationType.GENERATE_BY_PROMNT:
-        user_subscription.generation_photos_left -= 1
-
-        await user_repository.update_user_subscription(user_subscription)
+        elif operation == model.OperationType.GENERATE_BY_PROMNT:
+            await user_repository.decrement_generation_count_left(user_subscription)
+    except Exception:
+        raise exception.OperationOutOfLimit(operation)
 
 
 async def check_subscription_limits(user_id: str, operation: model.OperationType) -> None:
-    user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
-    if user_subscription is None:
-        raise exception.NoActiveSubscription
+    async with user_repository.tx():
+        user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
+        if user_subscription is None:
+            raise exception.NoActiveSubscription
 
-    user = await user_repository.get_user_by_id(user_id=user_id)
-    if user is None:
-        raise exception.UserNotFound
+        user = await user_repository.get_user_by_id(user_id=user_id)
+        if user is None:
+            raise exception.UserNotFound
 
-    if not user_subscription:
-        raise exception.NoActiveSubscription
+        if not user_subscription:
+            raise exception.NoActiveSubscription
 
-    if await is_raise_limits(user, user_subscription, operation):
-        await handle_raised_limits(user, user_subscription, operation)
+        if await is_raise_limits(user, user_subscription, operation):
+            await handle_raised_limits(user, user_subscription, operation)
 
 
 async def is_raise_limits(
@@ -372,15 +374,16 @@ async def get_user_models_count(user_id: str) -> int:
 
 
 async def update_user_limits(user_id: str, generation_count: int, models_count: int):
-    user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
-    if user_subscription is None:
-        raise exception.NoActiveSubscription
+    async with user_repository.tx():
+        user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
+        if user_subscription is None:
+            raise exception.NoActiveSubscription
 
-    await user_repository.increase_user_models_limit(user_id, models_count)
-    await user_repository.add_generations_to_active_subscription(
-        user_id,
-        photos=generation_count,
-    )
+        await user_repository.increase_user_models_limit(user_id, models_count)
+        await user_repository.add_generations_to_active_subscription(
+            user_id,
+            photos=generation_count,
+        )
 
 
 async def add_referral_log(log: model.ReferralLog):
