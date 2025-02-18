@@ -299,23 +299,18 @@ async def store_user_payment(user_id: str, payment_details: dict) -> None:
 
 
 async def update_subscription_state(user_id: str, operation: model.OperationType) -> None:
-    async with user_repository.rep_tx():
-        user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
-        if user_subscription is None:
-            raise exception.NoActiveSubscription
+    user_subscription = await user_repository.get_active_user_subscription(user_id=user_id)
+    if user_subscription is None:
+        raise exception.NoActiveSubscription
 
-        user = await user_repository.get_user_by_id(user_id=user_id)
-        if user is None:
-            raise exception.UserNotFound
-
-        if await is_raise_limits(user, user_subscription, operation):
-            await handle_raised_limits(user, user_subscription, operation)
-
+    try:
         if operation == model.OperationType.GENERATE_BY_IMAGE:
             await user_repository.decrement_generation_count_left(user_subscription)
 
         elif operation == model.OperationType.GENERATE_BY_PROMNT:
             await user_repository.decrement_generation_count_left(user_subscription)
+    except Exception:
+        raise exception.OperationOutOfLimit(operation)
 
 
 async def check_subscription_limits(user_id: str, operation: model.OperationType) -> None:
