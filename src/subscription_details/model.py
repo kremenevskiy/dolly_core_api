@@ -1,5 +1,6 @@
 import datetime
 import enum
+import json
 
 from pydantic import BaseModel
 
@@ -22,6 +23,7 @@ class Subscription(BaseModel):
     end_date: datetime.datetime | None
     models_count: int
     generation_photos_count: int
+    ru_description: dict
 
     def is_monthly_sub(self) -> bool:
         return self.subscription_type == SubscriptionType.MONTHLY.value
@@ -39,4 +41,5 @@ class Subscription(BaseModel):
             end_date=row['end_date'],
             models_count=row['models_count'],
             generation_photos_count=row['generation_photos_count'],
+            ru_description=json.loads(row['ru_description']),
         )
