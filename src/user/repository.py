@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 import json
+from contextlib import asynccontextmanager
 
 from asyncpg.connection import asyncio, asyncpg
 
@@ -8,11 +8,10 @@ from src.user import model
 
 
 class UserRepository:
-
     @staticmethod
     @asynccontextmanager
     async def tx():
-        async with DatabaseManager.tx('read_commited'):
+        async with DatabaseManager.tx('read_committed'):
             yield
 
     @staticmethod
@@ -28,7 +27,7 @@ class UserRepository:
                     raise
 
                 # 0.1s → 0.2s → 0.4s
-                await asyncio.sleep(0.1 * (2 ** attempt))
+                await asyncio.sleep(0.1 * (2**attempt))
 
     @staticmethod
     async def create_new_user(user: model.User) -> None:
