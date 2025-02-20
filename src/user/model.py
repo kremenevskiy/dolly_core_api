@@ -84,7 +84,7 @@ class PaymentDetails(BaseModel):
     is_recurring: bool | None = None
     is_first_recurring: bool | None = None
     shipping_option_id: str | None = None
-    order_info: str | None = None
+    order_info: dict | None = None
 
 
 class UserSubscriptionRequest(BaseModel):
